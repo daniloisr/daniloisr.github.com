@@ -6473,7 +6473,7 @@ Elm.LightsOut.make = function (_elm) {
          if (_p0.ctor === "Just") {
                return _p0._0;
             } else {
-               return _U.crashCase("LightsOut",{start: {line: 300,column: 7},end: {line: 302,column: 53}},_p0)("Should never be here");
+               return _U.crashCase("LightsOut",{start: {line: 303,column: 7},end: {line: 305,column: 53}},_p0)("Should never be here");
             }
       };
       var fun$ = F2(function (_p2,mb) {    var _p3 = _p2;return $Maybe.Just(A2(fun,_p3._0,A2($Maybe.withDefault,_p3._1,mb)));});
@@ -6506,7 +6506,7 @@ Elm.LightsOut.make = function (_elm) {
    });
    var randomClick = F2(function (t,m) {
       var _p10 = A2($Random.generate,
-      A2($Random.$int,0,m.level * m.level),
+      A2($Random.$int,0,m.level * m.level - 1),
       _U.eq(m.rndSetup.rndInt,-1) ? $Random.initialSeed($Basics.round(t)) : m.rndSetup.seed);
       var rnd = _p10._0;
       var s = _p10._1;
@@ -6518,7 +6518,7 @@ Elm.LightsOut.make = function (_elm) {
             ,rndSetup: {seed: s,rndInt: rnd,clicks: m.rndSetup.clicks - 1}
             ,randomizing: _U.cmp(m.rndSetup.clicks - 1,0) > 0});
          } else {
-            return m;
+            return _U.update(m,{rndSetup: {seed: s,rndInt: rnd,clicks: m.rndSetup.clicks}});
          }
    });
    var randomize = F2(function (input,model) {
@@ -6575,7 +6575,7 @@ Elm.LightsOut.make = function (_elm) {
       if (model.randomizing) return model; else if (model.ended) {
                var _p20 = input;
                if (_p20.ctor === "Click") {
-                     return _U.cmp(model.level,6) < 0 ? A2(initialModel,A2($Basics.min,6,model.level + 1),Resize(model.window)) : model;
+                     return A2(initialModel,A2($Basics.min,6,model.level + 1),Resize(model.window));
                   } else {
                      return model;
                   }
@@ -6601,69 +6601,73 @@ Elm.LightsOut.make = function (_elm) {
                   default: return model;}
             }
    });
+   var updateState = F2(function (input,model) {
+      var _p24 = input;
+      switch (_p24.ctor)
+      {case "Resize": return _U.update(model,{window: _p24._0});
+         case "Reset": return A2(initialModel,model.level,Resize(model.window));
+         case "Tick": return _U.update(model,
+           {points: A2($List.map,function (p) {    return _U.update(p,{highlight: A2($Basics.max,p.hover,p.highlight - 8.0e-2)});},model.points)});
+         default: return model;}
+   });
+   var update = F2(function (input,model) {    return A2(randomize,input,A2(play,input,A2(updateState,input,model)));});
    var Click = function (a) {    return {ctor: "Click",_0: a};};
    var Move = function (a) {    return {ctor: "Move",_0: a};};
    var inputs = $Signal.mergeMany(_U.list([A2($Signal.map,Resize,$Window.dimensions)
                                           ,A2($Signal.map,Move,$Mouse.position)
                                           ,A2($Signal.map,Click,A2($Signal.sampleOn,$Mouse.clicks,$Mouse.position))
-                                          ,A2($Signal.map,function (_p24) {    return Tick($Basics.fst(_p24));},$Time.timestamp($Time.fps(30)))
+                                          ,A2($Signal.map,function (_p25) {    return Tick($Basics.fst(_p25));},$Time.timestamp($Time.fps(30)))
                                           ,resetButton.signal]));
    var padding = 2;
    var paintSquare = F3(function (bsize,level,point) {
       var squareSize = bsize / $Basics.toFloat(level);
-      var _p25 = {ctor: "_Tuple2"
+      var _p26 = {ctor: "_Tuple2"
                  ,_0: $Basics.toFloat(point.i) * squareSize - (bsize - squareSize) / 2
                  ,_1: $Basics.toFloat(point.j) * squareSize - (bsize - squareSize) / 2};
-      var mx = _p25._0;
-      var my = _p25._1;
-      var _p26 = {ctor: "_Tuple3",_0: $Basics.round(30 * point.highlight) + 50,_1: $Basics.round(30 * point.highlight) + 50,_2: 200};
-      var r = _p26._0;
-      var g = _p26._1;
-      var b = _p26._2;
+      var mx = _p26._0;
+      var my = _p26._1;
+      var _p27 = {ctor: "_Tuple3",_0: $Basics.round(30 * point.highlight) + 50,_1: $Basics.round(30 * point.highlight) + 50,_2: 200};
+      var r = _p27._0;
+      var g = _p27._1;
+      var b = _p27._2;
       return A2($Graphics$Collage.move,
       {ctor: "_Tuple2",_0: mx,_1: my},
       A2($Graphics$Collage.filled,
       point.clicked ? A3($Color.rgb,r,g,b) : $Color.grayscale(point.highlight * -5.0e-2 + 0.6),
       $Graphics$Collage.square(squareSize - padding)));
    });
+   var initialLevel = 3;
+   var clickStatus = function (m) {
+      var clicks = A2($Basics._op["++"],$Basics.toString(m.clicks)," clicks");
+      var level = A2($Basics._op["++"],"Level ",$Basics.toString(m.level - initialLevel + 1));
+      return A2(txt,$Color.black,A2($Basics._op["++"],level,A2($Basics._op["++"],"  -  ",clicks)));
+   };
    var view = function (model) {
-      var clicks = A2(txt,$Color.black,A2($Basics._op["++"],$Basics.toString(model.clicks)," clicks"));
       var btn = A2($Graphics$Input.button,A2($Signal.message,resetButton.address,Reset),"reset");
       var bsize = boardSize(model);
-      var board = model.ended ? _U.cmp(model.level,6) < 0 ? _U.list([function (_p27) {
-         return $Graphics$Collage.toForm(A2(txt,$Color.white,_p27));
-      }(A2($Basics._op["++"],"Won with ",A2($Basics._op["++"],$Basics.toString(model.clicks)," clicks!")))]) : _U.list([function (_p28) {
+      var board = model.ended ? _U.cmp(model.level,6) < 0 ? _U.list([function (_p28) {
          return $Graphics$Collage.toForm(A2(txt,$Color.white,_p28));
+      }(A2($Basics._op["++"],"Won with ",A2($Basics._op["++"],$Basics.toString(model.clicks)," clicks!\nClick to next Level")))]) : _U.list([function (_p29) {
+         return $Graphics$Collage.toForm(A2(txt,$Color.white,_p29));
       }(A2($Basics._op["++"],"Won with ",A2($Basics._op["++"],$Basics.toString(model.clicks)," clicks!\nNow get back to Work!")))]) : A2($List.map,
       A2(paintSquare,bsize,model.level),
       model.points);
-      var _p29 = model.window;
-      var w = _p29._0;
-      var h = _p29._1;
+      var _p30 = model.window;
+      var w = _p30._0;
+      var h = _p30._1;
       var rmargin = resetBtnMargin(h);
       return A2($Graphics$Element.below,
-      A4($Graphics$Element.container,w,rmargin / 2 | 0,$Graphics$Element.midTop,btn),
+      A4($Graphics$Element.container,w,rmargin / 2 | 0,$Graphics$Element.middle,btn),
       A2($Graphics$Element.below,
-      A4($Graphics$Element.container,w,rmargin / 2 | 0,$Graphics$Element.midTop,clicks),
+      A4($Graphics$Element.container,w,rmargin / 2 | 0,$Graphics$Element.midTop,clickStatus(model)),
       A4($Graphics$Element.container,
       w,
       h - rmargin,
       $Graphics$Element.middle,
-      function (_p30) {
-         return A2($Graphics$Element.color,$Color.grayscale(0.8),A3($Graphics$Collage.collage,$Basics.round(bsize),$Basics.round(bsize),_p30));
+      function (_p31) {
+         return A2($Graphics$Element.color,$Color.grayscale(0.8),A3($Graphics$Collage.collage,$Basics.round(bsize),$Basics.round(bsize),_p31));
       }(board))));
    };
-   var initialLevel = 3;
-   var updateState = F2(function (input,model) {
-      var _p31 = input;
-      switch (_p31.ctor)
-      {case "Resize": return _U.update(model,{window: _p31._0});
-         case "Reset": return A2(initialModel,_U.cmp(model.level,6) < 0 ? model.level : initialLevel,Resize(model.window));
-         case "Tick": return _U.update(model,
-           {points: A2($List.map,function (p) {    return _U.update(p,{highlight: A2($Basics.max,p.hover,p.highlight - 8.0e-2)});},model.points)});
-         default: return model;}
-   });
-   var update = F2(function (input,model) {    return A2(randomize,input,A2(play,input,A2(updateState,input,model)));});
    var main = A2($Signal.map,view,A3(foldp$,update,initialModel(initialLevel),inputs));
    return _elm.LightsOut.values = {_op: _op
                                   ,initialLevel: initialLevel
@@ -6684,6 +6688,7 @@ Elm.LightsOut.make = function (_elm) {
                                   ,boardSize: boardSize
                                   ,resetBtnMargin: resetBtnMargin
                                   ,view: view
+                                  ,clickStatus: clickStatus
                                   ,txt: txt
                                   ,paintSquare: paintSquare
                                   ,update: update
