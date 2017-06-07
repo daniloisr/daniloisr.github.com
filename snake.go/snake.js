@@ -1781,7 +1781,7 @@ var $externalize = function(v, t) {
     }
     return $sliceToArray(v);
   case $kindString:
-    if (v.search(/^[\x00-\x7F]*$/) !== -1) {
+    if ($isASCII(v)) {
       return v;
     }
     var s = "", r;
@@ -2025,7 +2025,7 @@ var $internalize = function(v, t, recv) {
     return new t($mapArray(v, function(e) { return $internalize(e, t.elem); }));
   case $kindString:
     v = String(v);
-    if (v.search(/^[\x00-\x7F]*$/) !== -1) {
+    if ($isASCII(v)) {
       return v;
     }
     var s = "";
@@ -2074,6 +2074,16 @@ var $internalize = function(v, t, recv) {
     }
   }
   $throwRuntimeError("cannot internalize " + t.string);
+};
+
+/* $isASCII reports whether string s contains only ASCII characters. */
+var $isASCII = function(s) {
+  for (var i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) >= 128) {
+      return false;
+    }
+  }
+  return true;
 };
 
 $packages["github.com/gopherjs/gopherjs/js"] = (function() {
@@ -2287,7 +2297,7 @@ $packages["runtime"] = (function() {
 		if (!(goroot === undefined)) {
 			return $internalize(goroot, $String);
 		}
-		return "/home/dj/.linuxbrew/Cellar/go/1.8/libexec";
+		return "/usr/local/go";
 	};
 	$pkg.GOROOT = GOROOT;
 	Goexit = function() {
@@ -16691,11 +16701,35 @@ $packages["math/rand"] = (function() {
 	return $pkg;
 })();
 $packages["main"] = (function() {
-	var $pkg = {}, $init, fmt, js, rand, time, v2, sliceType, ptrType, funcType, structType, sliceType$1, grid, lastTick, ctx, d, bs, dir, food, head, dirbuf, main, initVars, randomFood, handler, tick, draw, setupElements;
+	var $pkg = {}, $init, fmt, js, rand, time, Game, v2, View, sliceType, structType, ptrType, funcType, sliceType$1, ptrType$1, arrayType, ptrType$2, initialBody, main, makeView;
 	fmt = $packages["fmt"];
 	js = $packages["github.com/gopherjs/gopherjs/js"];
 	rand = $packages["math/rand"];
 	time = $packages["time"];
+	Game = $pkg.Game = $newType(0, $kindStruct, "main.Game", true, "main", true, function(gridSize_, level_, lastTick_, levelStep_, currentDir_, food_, body_, dirbuf_, view_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.gridSize = 0;
+			this.level = 0;
+			this.lastTick = new $Int64(0, 0);
+			this.levelStep = 0;
+			this.currentDir = new v2.ptr(0, 0);
+			this.food = new v2.ptr(0, 0);
+			this.body = sliceType.nil;
+			this.dirbuf = sliceType.nil;
+			this.view = new View.ptr(null, new v2.ptr(0, 0));
+			return;
+		}
+		this.gridSize = gridSize_;
+		this.level = level_;
+		this.lastTick = lastTick_;
+		this.levelStep = levelStep_;
+		this.currentDir = currentDir_;
+		this.food = food_;
+		this.body = body_;
+		this.dirbuf = dirbuf_;
+		this.view = view_;
+	});
 	v2 = $pkg.v2 = $newType(0, $kindStruct, "main.v2", true, "main", false, function(x_, y_) {
 		this.$val = this;
 		if (arguments.length === 0) {
@@ -16706,11 +16740,183 @@ $packages["main"] = (function() {
 		this.x = x_;
 		this.y = y_;
 	});
+	View = $pkg.View = $newType(0, $kindStruct, "main.View", true, "main", true, function(ctx_, canvasSize_) {
+		this.$val = this;
+		if (arguments.length === 0) {
+			this.ctx = null;
+			this.canvasSize = new v2.ptr(0, 0);
+			return;
+		}
+		this.ctx = ctx_;
+		this.canvasSize = canvasSize_;
+	});
 	sliceType = $sliceType(v2);
+	structType = $structType("main", [{prop: "dir", name: "dir", exported: false, typ: v2, tag: ""}, {prop: "oposite", name: "oposite", exported: false, typ: $String, tag: ""}]);
 	ptrType = $ptrType(js.Object);
 	funcType = $funcType([ptrType], [], false);
-	structType = $structType("main", [{prop: "dir", name: "dir", exported: false, typ: v2, tag: ""}, {prop: "oposite", name: "oposite", exported: false, typ: $String, tag: ""}]);
 	sliceType$1 = $sliceType($emptyInterface);
+	ptrType$1 = $ptrType(Game);
+	arrayType = $arrayType($Int, 2);
+	ptrType$2 = $ptrType(View);
+	Game.ptr.prototype.tickInterval = function(v) {
+		var $ptr, _q, game, interval, v, x, x$1, x$2;
+		game = this;
+		interval = (_q = 1000 / ((game.level + 8 >> 0)), (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+		return (x = (x$1 = game.lastTick, new $Int64(v.$high - x$1.$high, v.$low - x$1.$low)), x$2 = new $Int64(0, interval), (x.$high > x$2.$high || (x.$high === x$2.$high && x.$low > x$2.$low)));
+	};
+	Game.prototype.tickInterval = function(v) { return this.$val.tickInterval(v); };
+	Game.ptr.prototype.genFood = function() {
+		var $ptr, _entry, _i, _i$1, _key, _key$1, _keys, _r, _ref, _ref$1, available, availables, cell, cell$1, game, i, j, positions, x, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _i = $f._i; _i$1 = $f._i$1; _key = $f._key; _key$1 = $f._key$1; _keys = $f._keys; _r = $f._r; _ref = $f._ref; _ref$1 = $f._ref$1; available = $f.available; availables = $f.availables; cell = $f.cell; cell$1 = $f.cell$1; game = $f.game; i = $f.i; j = $f.j; positions = $f.positions; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		game = this;
+		positions = {};
+		i = 0;
+		while (true) {
+			if (!(i < game.gridSize)) { break; }
+			j = 0;
+			while (true) {
+				if (!(j < game.gridSize)) { break; }
+				_key = new v2.ptr(i, j); (positions || $throwRuntimeError("assignment to entry in nil map"))[v2.keyFor(_key)] = { k: _key, v: true };
+				j = j + (1) >> 0;
+			}
+			i = i + (1) >> 0;
+		}
+		_ref = game.body;
+		_i = 0;
+		while (true) {
+			if (!(_i < _ref.$length)) { break; }
+			cell = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), v2);
+			_key$1 = $clone(cell, v2); (positions || $throwRuntimeError("assignment to entry in nil map"))[v2.keyFor(_key$1)] = { k: _key$1, v: false };
+			_i++;
+		}
+		availables = sliceType.nil;
+		_ref$1 = positions;
+		_i$1 = 0;
+		_keys = $keys(_ref$1);
+		while (true) {
+			if (!(_i$1 < _keys.length)) { break; }
+			_entry = _ref$1[_keys[_i$1]];
+			if (_entry === undefined) {
+				_i$1++;
+				continue;
+			}
+			cell$1 = $clone(_entry.k, v2);
+			available = _entry.v;
+			if (available) {
+				availables = $append(availables, cell$1);
+			}
+			_i$1++;
+		}
+		_r = rand.Intn(availables.$length); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		$s = -1; return (x = _r, ((x < 0 || x >= availables.$length) ? ($throwRuntimeError("index out of range"), undefined) : availables.$array[availables.$offset + x]));
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Game.ptr.prototype.genFood }; } $f.$ptr = $ptr; $f._entry = _entry; $f._i = _i; $f._i$1 = _i$1; $f._key = _key; $f._key$1 = _key$1; $f._keys = _keys; $f._r = _r; $f._ref = _ref; $f._ref$1 = _ref$1; $f.available = available; $f.availables = availables; $f.cell = cell; $f.cell$1 = cell$1; $f.game = game; $f.i = i; $f.j = j; $f.positions = positions; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Game.prototype.genFood = function() { return this.$val.genFood(); };
+	Game.ptr.prototype.reset = function() {
+		var $ptr, _r, game, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; game = $f.game; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		game = this;
+		game.gridSize = 10;
+		game.level = 0;
+		game.lastTick = new $Int64(0, 0);
+		game.levelStep = 30;
+		v2.copy(game.currentDir, new v2.ptr(1, 0));
+		game.body = initialBody;
+		_r = $clone(game, Game).genFood(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		v2.copy(game.food, _r);
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Game.ptr.prototype.reset }; } $f.$ptr = $ptr; $f._r = _r; $f.game = game; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Game.prototype.reset = function() { return this.$val.reset(); };
+	Game.ptr.prototype.keyHandler = function(o) {
+		var $ptr, _entry, _entry$1, _tuple, dirs, game, lastdir, o, ok, oposite, val, x, x$1;
+		game = this;
+		dirs = $makeMap($String.keyFor, [{ k: "KeyW", v: new structType.ptr(new v2.ptr(0, -1), "KeyS") }, { k: "KeyS", v: new structType.ptr(new v2.ptr(0, 1), "KeyW") }, { k: "KeyA", v: new structType.ptr(new v2.ptr(-1, 0), "KeyD") }, { k: "KeyD", v: new structType.ptr(new v2.ptr(1, 0), "KeyA") }]);
+		_tuple = (_entry = dirs[$String.keyFor($internalize(o.code, $String))], _entry !== undefined ? [_entry.v, true] : [new structType.ptr(new v2.ptr(0, 0), ""), false]);
+		val = $clone(_tuple[0], structType);
+		ok = _tuple[1];
+		if (ok) {
+			lastdir = new v2.ptr(0, 0);
+			if (game.dirbuf.$length === 0) {
+				v2.copy(lastdir, game.currentDir);
+			} else {
+				v2.copy(lastdir, (x = game.dirbuf, x$1 = game.dirbuf.$length - 1 >> 0, ((x$1 < 0 || x$1 >= x.$length) ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + x$1])));
+			}
+			oposite = $clone((_entry$1 = dirs[$String.keyFor(val.oposite)], _entry$1 !== undefined ? _entry$1.v : new structType.ptr(new v2.ptr(0, 0), "")).dir, v2);
+			if (!($equal(lastdir, oposite, v2)) && !($equal(lastdir, val.dir, v2))) {
+				game.dirbuf = $append(game.dirbuf, val.dir);
+			}
+			o.preventDefault();
+		}
+	};
+	Game.prototype.keyHandler = function(o) { return this.$val.keyHandler(o); };
+	Game.ptr.prototype.tick = function(o) {
+		var $ptr, _i, _q, _r, _ref, _tmp, _tmp$1, cell, game, invalid, newhead, o, oldhead, v, x, x$1, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _q = $f._q; _r = $f._r; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; cell = $f.cell; game = $f.game; invalid = $f.invalid; newhead = $f.newhead; o = $f.o; oldhead = $f.oldhead; v = $f.v; x = $f.x; x$1 = $f.x$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		game = this;
+		v = $internalize(o, $Int64);
+		/* */ if ($clone(game, Game).tickInterval(v)) { $s = 1; continue; }
+		/* */ $s = 2; continue;
+		/* if ($clone(game, Game).tickInterval(v)) { */ case 1:
+			if (game.dirbuf.$length > 0) {
+				_tmp = $clone((x = game.dirbuf, (0 >= x.$length ? ($throwRuntimeError("index out of range"), undefined) : x.$array[x.$offset + 0])), v2);
+				_tmp$1 = $subslice(game.dirbuf, 1);
+				v2.copy(game.currentDir, _tmp);
+				game.dirbuf = _tmp$1;
+			}
+			oldhead = $clone((x$1 = game.body, (0 >= x$1.$length ? ($throwRuntimeError("index out of range"), undefined) : x$1.$array[x$1.$offset + 0])), v2);
+			newhead = $clone($clone(oldhead, v2).add($clone(game.currentDir, v2)), v2);
+			invalid = false;
+			_ref = game.body;
+			_i = 0;
+			while (true) {
+				if (!(_i < _ref.$length)) { break; }
+				cell = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), v2);
+				invalid = $equal(newhead, cell, v2);
+				invalid = invalid || newhead.x < 0 || newhead.x >= game.gridSize;
+				invalid = invalid || newhead.y < 0 || newhead.y >= game.gridSize;
+				if (invalid) {
+					break;
+				}
+				_i++;
+			}
+			/* */ if ($equal(game.food, newhead, v2)) { $s = 3; continue; }
+			/* */ $s = 4; continue;
+			/* if ($equal(game.food, newhead, v2)) { */ case 3:
+				game.body = $appendSlice(new sliceType([$clone(newhead, v2)]), game.body);
+				_r = $clone(game, Game).genFood(); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+				v2.copy(game.food, _r);
+				game.level = (_q = ((game.body.$length - initialBody.$length >> 0)) / game.levelStep, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+				$s = 5; continue;
+			/* } else { */ case 4:
+				game.body = $appendSlice(new sliceType([$clone(newhead, v2)]), $subslice(game.body, 0, (game.body.$length - 1 >> 0)));
+			/* } */ case 5:
+			/* */ if (invalid) { $s = 7; continue; }
+			/* */ $s = 8; continue;
+			/* if (invalid) { */ case 7:
+				$r = game.reset(); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+			/* } */ case 8:
+			game.view.draw(game);
+			game.lastTick = $internalize(o, $Int64);
+		/* } */ case 2:
+		$global.requestAnimationFrame($externalize($methodVal(game, "tick"), funcType));
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: Game.ptr.prototype.tick }; } $f.$ptr = $ptr; $f._i = _i; $f._q = _q; $f._r = _r; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f.cell = cell; $f.game = game; $f.invalid = invalid; $f.newhead = newhead; $f.o = o; $f.oldhead = oldhead; $f.v = v; $f.x = x; $f.x$1 = x$1; $f.$s = $s; $f.$r = $r; return $f;
+	};
+	Game.prototype.tick = function(o) { return this.$val.tick(o); };
+	main = function() {
+		var $ptr, _r, game, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; game = $f.game; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+		$r = rand.Seed($clone(time.Now(), time.Time).Unix()); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		game = new Game.ptr(0, 0, new $Int64(0, 0), 0, new v2.ptr(0, 0), new v2.ptr(0, 0), sliceType.nil, sliceType.nil, new View.ptr(null, new v2.ptr(0, 0)));
+		$r = game.reset(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
+		_r = makeView($clone(game, Game)); /* */ $s = 3; case 3: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
+		View.copy(game.view, _r);
+		$global.addEventListener($externalize("keydown", $String), $externalize($methodVal(game, "keyHandler"), funcType), $externalize(true, $Bool));
+		$global.requestAnimationFrame($externalize($methodVal(game, "tick"), funcType));
+		$s = -1; return;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: main }; } $f.$ptr = $ptr; $f._r = _r; $f.game = game; $f.$s = $s; $f.$r = $r; return $f;
+	};
 	v2.ptr.prototype.add = function(b) {
 		var $ptr, a, b;
 		a = this;
@@ -16719,155 +16925,60 @@ $packages["main"] = (function() {
 		return a;
 	};
 	v2.prototype.add = function(b) { return this.$val.add(b); };
+	v2.ptr.prototype.sub = function(b) {
+		var $ptr, a, b;
+		a = this;
+		a.x = a.x - (b.x) >> 0;
+		a.y = a.y - (b.y) >> 0;
+		return a;
+	};
+	v2.prototype.sub = function(b) { return this.$val.sub(b); };
+	v2.ptr.prototype.mul = function(b) {
+		var $ptr, a, b;
+		a = this;
+		a.x = $imul(a.x, (b.x));
+		a.y = $imul(a.y, (b.y));
+		return a;
+	};
+	v2.prototype.mul = function(b) { return this.$val.mul(b); };
 	v2.ptr.prototype.div = function(x) {
 		var $ptr, _q, _q$1, a, x;
 		a = this;
 		return new v2.ptr((_q = a.x / x, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero")), (_q$1 = a.y / x, (_q$1 === _q$1 && _q$1 !== 1/0 && _q$1 !== -1/0) ? _q$1 >> 0 : $throwRuntimeError("integer divide by zero")));
 	};
 	v2.prototype.div = function(x) { return this.$val.div(x); };
-	main = function() {
-		var $ptr, _r, _tuple, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _tuple = $f._tuple; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		$r = rand.Seed($clone(time.Now(), time.Time).Unix()); /* */ $s = 1; case 1: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		_r = setupElements(); /* */ $s = 2; case 2: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_tuple = _r;
-		v2.copy(d, _tuple[0]);
-		ctx = _tuple[1];
-		v2.copy(bs, $clone(d, v2).div(grid));
-		$r = initVars(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		$global.addEventListener($externalize("keydown", $String), $externalize(handler, funcType), $externalize(true, $Bool));
-		$global.requestAnimationFrame($externalize(tick, funcType));
-		$s = -1; return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: main }; } $f.$ptr = $ptr; $f._r = _r; $f._tuple = _tuple; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	initVars = function() {
-		var $ptr, _r, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v2.copy(dir, new v2.ptr(1, 0));
-		lastTick = new $Int64(0, 0);
-		head = new sliceType([new v2.ptr(0, 2)]);
-		_r = randomFood(); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		v2.copy(food, _r);
-		$s = -1; return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: initVars }; } $f.$ptr = $ptr; $f._r = _r; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	randomFood = function() {
-		var $ptr, _r, _r$1, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _r = $f._r; _r$1 = $f._r$1; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		_r = rand.Intn(grid); /* */ $s = 1; case 1: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-		_r$1 = rand.Intn(grid); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
-		$s = -1; return new v2.ptr(_r, _r$1);
-		/* */ } return; } if ($f === undefined) { $f = { $blk: randomFood }; } $f.$ptr = $ptr; $f._r = _r; $f._r$1 = _r$1; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	handler = function(o) {
-		var $ptr, _entry, _entry$1, _tuple, dirs, lastdir, o, ok, oposite, val, x;
-		dirs = $makeMap($String.keyFor, [{ k: "KeyE", v: new structType.ptr(new v2.ptr(0, -1), "KeyD") }, { k: "KeyD", v: new structType.ptr(new v2.ptr(0, 1), "KeyE") }, { k: "KeyS", v: new structType.ptr(new v2.ptr(-1, 0), "KeyF") }, { k: "KeyF", v: new structType.ptr(new v2.ptr(1, 0), "KeyS") }]);
-		_tuple = (_entry = dirs[$String.keyFor($internalize(o.code, $String))], _entry !== undefined ? [_entry.v, true] : [new structType.ptr(new v2.ptr(0, 0), ""), false]);
-		val = $clone(_tuple[0], structType);
-		ok = _tuple[1];
-		if (ok) {
-			lastdir = new v2.ptr(0, 0);
-			if (dirbuf.$length === 0) {
-				v2.copy(lastdir, dir);
-			} else {
-				v2.copy(lastdir, (x = dirbuf.$length - 1 >> 0, ((x < 0 || x >= dirbuf.$length) ? ($throwRuntimeError("index out of range"), undefined) : dirbuf.$array[dirbuf.$offset + x])));
-			}
-			oposite = $clone((_entry$1 = dirs[$String.keyFor(val.oposite)], _entry$1 !== undefined ? _entry$1.v : new structType.ptr(new v2.ptr(0, 0), "")).dir, v2);
-			if (!($equal(lastdir, oposite, v2)) && !($equal(lastdir, val.dir, v2))) {
-				dirbuf = $append(dirbuf, val.dir);
-			}
-			o.preventDefault();
-		}
-	};
-	tick = function(o) {
-		var $ptr, _i, _r, _ref, _tmp, _tmp$1, invalid, newhead, o, oldhead, segment, v, x, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _i = $f._i; _r = $f._r; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; invalid = $f.invalid; newhead = $f.newhead; o = $f.o; oldhead = $f.oldhead; segment = $f.segment; v = $f.v; x = $f.x; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
-		v = $internalize(o, $Int64);
-		/* */ if ((x = new $Int64(v.$high - lastTick.$high, v.$low - lastTick.$low), (x.$high > 0 || (x.$high === 0 && x.$low > 166)))) { $s = 1; continue; }
-		/* */ $s = 2; continue;
-		/* if ((x = new $Int64(v.$high - lastTick.$high, v.$low - lastTick.$low), (x.$high > 0 || (x.$high === 0 && x.$low > 166)))) { */ case 1:
-			if (dirbuf.$length > 0) {
-				_tmp = $clone((0 >= dirbuf.$length ? ($throwRuntimeError("index out of range"), undefined) : dirbuf.$array[dirbuf.$offset + 0]), v2);
-				_tmp$1 = $subslice(dirbuf, 1);
-				v2.copy(dir, _tmp);
-				dirbuf = _tmp$1;
-			}
-			oldhead = $clone((0 >= head.$length ? ($throwRuntimeError("index out of range"), undefined) : head.$array[head.$offset + 0]), v2);
-			newhead = $clone($clone(oldhead, v2).add($clone(dir, v2)), v2);
-			invalid = false;
-			_ref = head;
-			_i = 0;
-			while (true) {
-				if (!(_i < _ref.$length)) { break; }
-				segment = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), v2);
-				invalid = $equal(newhead, segment, v2);
-				invalid = invalid || newhead.x < 0 || newhead.x >= grid;
-				invalid = invalid || newhead.y < 0 || newhead.y >= grid;
-				if (invalid) {
-					break;
-				}
-				_i++;
-			}
-			/* */ if ($equal(food, newhead, v2)) { $s = 3; continue; }
-			/* */ $s = 4; continue;
-			/* if ($equal(food, newhead, v2)) { */ case 3:
-				head = $appendSlice(new sliceType([$clone(newhead, v2)]), head);
-				_r = randomFood(); /* */ $s = 6; case 6: if($c) { $c = false; _r = _r.$blk(); } if (_r && _r.$blk !== undefined) { break s; }
-				v2.copy(food, _r);
-				$s = 5; continue;
-			/* } else { */ case 4:
-				head = $appendSlice(new sliceType([$clone(newhead, v2)]), $subslice(head, 0, (head.$length - 1 >> 0)));
-			/* } */ case 5:
-			/* */ if (invalid) { $s = 7; continue; }
-			/* */ $s = 8; continue;
-			/* if (invalid) { */ case 7:
-				$r = initVars(); /* */ $s = 9; case 9: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-			/* } */ case 8:
-			draw();
-			lastTick = $internalize(o, $Int64);
-		/* } */ case 2:
-		$global.requestAnimationFrame($externalize(tick, funcType));
-		$s = -1; return;
-		/* */ } return; } if ($f === undefined) { $f = { $blk: tick }; } $f.$ptr = $ptr; $f._i = _i; $f._r = _r; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f.invalid = invalid; $f.newhead = newhead; $f.o = o; $f.oldhead = oldhead; $f.segment = segment; $f.v = v; $f.x = x; $f.$s = $s; $f.$r = $r; return $f;
-	};
-	draw = function() {
-		var $ptr, _i, _ref, p;
+	View.ptr.prototype.draw = function(game) {
+		var $ptr, _i, _ref, body, cellSize, ctx, food, foodCord, foodSize, game, segment, segmentCord, segmentSize, view;
+		view = this;
+		ctx = view.ctx;
+		cellSize = $clone($clone(view.canvasSize, v2).div(game.gridSize), v2);
+		food = $clone(game.food, v2);
+		body = game.body;
+		foodCord = $clone($clone($clone(food, v2).mul($clone(cellSize, v2)), v2).add(new v2.ptr(3, 3)), v2);
+		foodSize = $clone($clone(cellSize, v2).sub(new v2.ptr(6, 6)), v2);
 		ctx.fillStyle = $externalize("#dfdfdf", $String);
-		ctx.fillRect(0, 0, $imul(bs.x, grid), $imul(bs.y, grid));
+		ctx.fillRect(0, 0, view.canvasSize.x, view.canvasSize.y);
 		ctx.fillStyle = $externalize("red", $String);
-		ctx.fillRect(($imul(food.x, bs.x)) + 3 >> 0, ($imul(food.y, bs.y)) + 3 >> 0, bs.x - 6 >> 0, bs.y - 6 >> 0);
+		ctx.fillRect(foodCord.x, foodCord.y, foodSize.x, foodSize.y);
 		ctx.fillStyle = $externalize("black", $String);
-		_ref = head;
+		_ref = body;
 		_i = 0;
 		while (true) {
 			if (!(_i < _ref.$length)) { break; }
-			p = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), v2);
-			ctx.fillRect(($imul(p.x, bs.x)) + 2 >> 0, ($imul(p.y, bs.y)) + 2 >> 0, bs.x - 4 >> 0, bs.y - 4 >> 0);
+			segment = $clone(((_i < 0 || _i >= _ref.$length) ? ($throwRuntimeError("index out of range"), undefined) : _ref.$array[_ref.$offset + _i]), v2);
+			segmentCord = $clone($clone($clone(segment, v2).mul($clone(cellSize, v2)), v2).add(new v2.ptr(2, 2)), v2);
+			segmentSize = $clone($clone(cellSize, v2).sub(new v2.ptr(4, 4)), v2);
+			ctx.fillRect(segmentCord.x, segmentCord.y, segmentSize.x, segmentSize.y);
 			_i++;
 		}
 	};
-	setupElements = function() {
-		var $ptr, _entry, _i, _keys, _q, _r, _r$1, _ref, _tmp, _tmp$1, biggest, body, canvas, doc, h, k, marginLeft, size, styles, v, w, $s, $r;
-		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _entry = $f._entry; _i = $f._i; _keys = $f._keys; _q = $f._q; _r = $f._r; _r$1 = $f._r$1; _ref = $f._ref; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; biggest = $f.biggest; body = $f.body; canvas = $f.canvas; doc = $f.doc; h = $f.h; k = $f.k; marginLeft = $f.marginLeft; size = $f.size; styles = $f.styles; v = $f.v; w = $f.w; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
+	View.prototype.draw = function(game) { return this.$val.draw(game); };
+	makeView = function(game) {
+		var $ptr, _q, _r, _r$1, _tmp, _tmp$1, biggest, body, canvas, doc, game, h, marginLeft, size, view, w, $s, $r;
+		/* */ $s = 0; var $f, $c = false; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $ptr = $f.$ptr; _q = $f._q; _r = $f._r; _r$1 = $f._r$1; _tmp = $f._tmp; _tmp$1 = $f._tmp$1; biggest = $f.biggest; body = $f.body; canvas = $f.canvas; doc = $f.doc; game = $f.game; h = $f.h; marginLeft = $f.marginLeft; size = $f.size; view = $f.view; w = $f.w; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
 		doc = $global.document;
 		body = doc.body;
 		canvas = doc.createElement($externalize("canvas", $String));
-		styles = $makeMap($String.keyFor, [{ k: "margin", v: "0" }, { k: "position", v: "absolute" }, { k: "top", v: "0" }, { k: "bottom", v: "0" }, { k: "left", v: "0" }, { k: "right", v: "0" }, { k: "overflow", v: "hidden" }]);
-		_ref = styles;
-		_i = 0;
-		_keys = $keys(_ref);
-		while (true) {
-			if (!(_i < _keys.length)) { break; }
-			_entry = _ref[_keys[_i]];
-			if (_entry === undefined) {
-				_i++;
-				continue;
-			}
-			k = _entry.k;
-			v = _entry.v;
-			body.style[$externalize(k, $String)] = $externalize(v, $String);
-			_i++;
-		}
 		_tmp = $parseInt(body.clientWidth) >> 0;
 		_tmp$1 = $parseInt(body.clientHeight) >> 0;
 		w = _tmp;
@@ -16877,7 +16988,7 @@ $packages["main"] = (function() {
 			biggest = h;
 		}
 		size = ($fround(biggest * 0.8999999761581421) >> 0);
-		marginLeft = (_q = ((w - biggest >> 0)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
+		marginLeft = (_q = ((w - size >> 0)) / 2, (_q === _q && _q !== 1/0 && _q !== -1/0) ? _q >> 0 : $throwRuntimeError("integer divide by zero"));
 		if (marginLeft < 0) {
 			marginLeft = 0;
 		}
@@ -16888,11 +16999,19 @@ $packages["main"] = (function() {
 		_r$1 = fmt.Sprintf("%dpx", new sliceType$1([new $Int(marginLeft)])); /* */ $s = 2; case 2: if($c) { $c = false; _r$1 = _r$1.$blk(); } if (_r$1 && _r$1.$blk !== undefined) { break s; }
 		canvas.style[$externalize("margin-left", $String)] = $externalize(_r$1, $String);
 		body.appendChild(canvas);
-		$s = -1; return [new v2.ptr(size, size), canvas.getContext($externalize("2d", $String))];
-		/* */ } return; } if ($f === undefined) { $f = { $blk: setupElements }; } $f.$ptr = $ptr; $f._entry = _entry; $f._i = _i; $f._keys = _keys; $f._q = _q; $f._r = _r; $f._r$1 = _r$1; $f._ref = _ref; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f.biggest = biggest; $f.body = body; $f.canvas = canvas; $f.doc = doc; $f.h = h; $f.k = k; $f.marginLeft = marginLeft; $f.size = size; $f.styles = styles; $f.v = v; $f.w = w; $f.$s = $s; $f.$r = $r; return $f;
+		view = new View.ptr(null, new v2.ptr(0, 0));
+		v2.copy(view.canvasSize, new v2.ptr(size, size));
+		view.ctx = canvas.getContext($externalize("2d", $String));
+		$s = -1; return view;
+		/* */ } return; } if ($f === undefined) { $f = { $blk: makeView }; } $f.$ptr = $ptr; $f._q = _q; $f._r = _r; $f._r$1 = _r$1; $f._tmp = _tmp; $f._tmp$1 = _tmp$1; $f.biggest = biggest; $f.body = body; $f.canvas = canvas; $f.doc = doc; $f.game = game; $f.h = h; $f.marginLeft = marginLeft; $f.size = size; $f.view = view; $f.w = w; $f.$s = $s; $f.$r = $r; return $f;
 	};
-	v2.methods = [{prop: "add", name: "add", pkg: "main", typ: $funcType([v2], [v2], false)}, {prop: "mod", name: "mod", pkg: "main", typ: $funcType([$Int], [v2], false)}, {prop: "div", name: "div", pkg: "main", typ: $funcType([$Int], [v2], false)}];
+	Game.methods = [{prop: "tickInterval", name: "tickInterval", pkg: "main", typ: $funcType([$Int64], [$Bool], false)}, {prop: "genFood", name: "genFood", pkg: "main", typ: $funcType([], [v2], false)}];
+	ptrType$1.methods = [{prop: "reset", name: "reset", pkg: "main", typ: $funcType([], [], false)}, {prop: "keyHandler", name: "keyHandler", pkg: "main", typ: $funcType([ptrType], [], false)}, {prop: "tick", name: "tick", pkg: "main", typ: $funcType([ptrType], [], false)}];
+	v2.methods = [{prop: "add", name: "add", pkg: "main", typ: $funcType([v2], [v2], false)}, {prop: "sub", name: "sub", pkg: "main", typ: $funcType([v2], [v2], false)}, {prop: "mul", name: "mul", pkg: "main", typ: $funcType([v2], [v2], false)}, {prop: "toArray", name: "toArray", pkg: "main", typ: $funcType([], [arrayType], false)}, {prop: "div", name: "div", pkg: "main", typ: $funcType([$Int], [v2], false)}];
+	ptrType$2.methods = [{prop: "draw", name: "draw", pkg: "main", typ: $funcType([ptrType$1], [], false)}];
+	Game.init("main", [{prop: "gridSize", name: "gridSize", exported: false, typ: $Int, tag: ""}, {prop: "level", name: "level", exported: false, typ: $Int, tag: ""}, {prop: "lastTick", name: "lastTick", exported: false, typ: $Int64, tag: ""}, {prop: "levelStep", name: "levelStep", exported: false, typ: $Int, tag: ""}, {prop: "currentDir", name: "currentDir", exported: false, typ: v2, tag: ""}, {prop: "food", name: "food", exported: false, typ: v2, tag: ""}, {prop: "body", name: "body", exported: false, typ: sliceType, tag: ""}, {prop: "dirbuf", name: "dirbuf", exported: false, typ: sliceType, tag: ""}, {prop: "view", name: "view", exported: false, typ: View, tag: ""}]);
 	v2.init("main", [{prop: "x", name: "x", exported: false, typ: $Int, tag: ""}, {prop: "y", name: "y", exported: false, typ: $Int, tag: ""}]);
+	View.init("main", [{prop: "ctx", name: "ctx", exported: false, typ: ptrType, tag: ""}, {prop: "canvasSize", name: "canvasSize", exported: false, typ: v2, tag: ""}]);
 	$init = function() {
 		$pkg.$init = function() {};
 		/* */ var $f, $c = false, $s = 0, $r; if (this !== undefined && this.$blk !== undefined) { $f = this; $c = true; $s = $f.$s; $r = $f.$r; } s: while (true) { switch ($s) { case 0:
@@ -16900,15 +17019,7 @@ $packages["main"] = (function() {
 		$r = js.$init(); /* */ $s = 2; case 2: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = rand.$init(); /* */ $s = 3; case 3: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
 		$r = time.$init(); /* */ $s = 4; case 4: if($c) { $c = false; $r = $r.$blk(); } if ($r && $r.$blk !== undefined) { break s; }
-		lastTick = new $Int64(0, 0);
-		ctx = null;
-		d = new v2.ptr(0, 0);
-		bs = new v2.ptr(0, 0);
-		dir = new v2.ptr(0, 0);
-		food = new v2.ptr(0, 0);
-		head = sliceType.nil;
-		dirbuf = sliceType.nil;
-		grid = 10;
+		initialBody = new sliceType([new v2.ptr(0, 4), new v2.ptr(0, 3), new v2.ptr(0, 2), new v2.ptr(0, 1)]);
 		/* */ if ($pkg === $mainPkg) { $s = 5; continue; }
 		/* */ $s = 6; continue;
 		/* if ($pkg === $mainPkg) { */ case 5:
